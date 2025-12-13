@@ -1,0 +1,9 @@
+apiVersion: gateway.inference-gateway.io/v1alpha1
+kind: InferenceBackend
+metadata:
+  labels:
+    app.kubernetes.io/name: inference-gateway
+    app.kubernetes.io/managed-by: kustomize
+  name: inferencebackend-sample
+spec:
+  # TODO(user): Add fields here
