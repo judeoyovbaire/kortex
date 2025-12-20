@@ -5,8 +5,18 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - gateway.inference-gateway.io
   resources:
+  - inferencebackends
   - inferenceroutes
   verbs:
   - create
@@ -19,12 +29,14 @@ rules:
 - apiGroups:
   - gateway.inference-gateway.io
   resources:
+  - inferencebackends/finalizers
   - inferenceroutes/finalizers
   verbs:
   - update
 - apiGroups:
   - gateway.inference-gateway.io
   resources:
+  - inferencebackends/status
   - inferenceroutes/status
   verbs:
   - get

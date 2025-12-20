@@ -4,6 +4,56 @@ metadata:
   labels:
     app.kubernetes.io/name: inference-gateway
     app.kubernetes.io/managed-by: kustomize
-  name: inferenceroute-sample
+  name: default-route
 spec:
-  # TODO(user): Add fields here
+  # Default backend when no rules match
+  defaultBackend:
+    name: openai-gpt4
+    weight: 100
+
+  # Fallback chain for automatic failover
+  fallback:
+    backends:
+      - openai-gpt4
+      - anthropic-claude
+      - local-llama
+    timeoutSeconds: 30
+
+  # Routing rules based on request properties
+  rules:
+    # Route GPT model requests to OpenAI
+    - match:
+        modelPattern: "gpt-*"
+      backends:
+        - name: openai-gpt4
+          weight: 100
+
+    # Route Claude model requests to Anthropic
+    - match:
+        modelPattern: "claude-*"
+      backends:
+        - name: anthropic-claude
+          weight: 100
+
+    # Route requests with specific header to local model
+    - match:
+        headers:
+          x-prefer-local: "true"
+      backends:
+        - name: local-llama
+          weight: 100
+
+    # A/B test between OpenAI and Anthropic for /v1/chat/completions
+    - match:
+        pathPrefix: "/v1/chat/completions"
+      backends:
+        - name: openai-gpt4
+          weight: 80
+        - name: anthropic-claude
+          weight: 20
+
+  # Enable cost tracking
+  costTracking: true
+
+  # Enable request logging for debugging
+  enableLogging: false

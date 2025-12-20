@@ -4,6 +4,74 @@ metadata:
   labels:
     app.kubernetes.io/name: inference-gateway
     app.kubernetes.io/managed-by: kustomize
-  name: inferencebackend-sample
+  name: openai-gpt4
 spec:
-  # TODO(user): Add fields here
+  type: external
+  external:
+    url: https://api.openai.com/v1
+    provider: openai
+    model: gpt-4
+    apiKeySecret:
+      name: openai-credentials
+      key: api-key
+  healthCheck:
+    intervalSeconds: 60
+    timeoutSeconds: 10
+    failureThreshold: 3
+  timeoutSeconds: 120
+  maxConcurrency: 50
+  priority: 100
+  cost:
+    inputTokenCost: "0.03"
+    outputTokenCost: "0.06"
+    currency: USD
+---
+apiVersion: gateway.inference-gateway.io/v1alpha1
+kind: InferenceBackend
+metadata:
+  labels:
+    app.kubernetes.io/name: inference-gateway
+    app.kubernetes.io/managed-by: kustomize
+  name: anthropic-claude
+spec:
+  type: external
+  external:
+    url: https://api.anthropic.com/v1
+    provider: anthropic
+    model: claude-3-opus-20240229
+    apiKeySecret:
+      name: anthropic-credentials
+      key: api-key
+  healthCheck:
+    intervalSeconds: 60
+    timeoutSeconds: 10
+    failureThreshold: 3
+  timeoutSeconds: 120
+  maxConcurrency: 50
+  priority: 90
+  cost:
+    inputTokenCost: "0.015"
+    outputTokenCost: "0.075"
+    currency: USD
+---
+apiVersion: gateway.inference-gateway.io/v1alpha1
+kind: InferenceBackend
+metadata:
+  labels:
+    app.kubernetes.io/name: inference-gateway
+    app.kubernetes.io/managed-by: kustomize
+  name: local-llama
+spec:
+  type: kubernetes
+  kubernetes:
+    serviceName: llama-service
+    namespace: inference
+    port: 8000
+  healthCheck:
+    path: /health
+    intervalSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  timeoutSeconds: 60
+  maxConcurrency: 10
+  priority: 50

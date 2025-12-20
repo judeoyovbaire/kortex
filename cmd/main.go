@@ -36,7 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
+	"github.com/judeoyovbaire/inference-gateway/internal/cache"
 	"github.com/judeoyovbaire/inference-gateway/internal/controller"
+	"github.com/judeoyovbaire/inference-gateway/internal/health"
+	"github.com/judeoyovbaire/inference-gateway/internal/proxy"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -59,12 +62,14 @@ func main() {
 	var webhookCertPath, webhookCertName, webhookCertKey string
 	var enableLeaderElection bool
 	var probeAddr string
+	var proxyAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&proxyAddr, "proxy-bind-address", ":8080", "The address the inference proxy binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -178,14 +183,64 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create shared components for controllers and proxy
+	routeCache := cache.NewStore()
+	healthChecker := health.NewChecker()
+
+	// Setup InferenceBackend controller
+	if err := (&controller.InferenceBackendReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		HealthChecker: healthChecker,
+		Cache:         routeCache,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "InferenceBackend")
+		os.Exit(1)
+	}
+
+	// Setup InferenceRoute controller
 	if err := (&controller.InferenceRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Cache:  routeCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "InferenceRoute")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	// Create P2/P3 components for proxy server
+	metricsRecorder := proxy.NewMetricsRecorder()
+	rateLimiter := proxy.NewRateLimiter()
+	experimentManager := proxy.NewExperimentManager(metricsRecorder)
+	costTracker := proxy.NewCostTracker(metricsRecorder)
+
+	setupLog.Info("initialized proxy components",
+		"metrics", metricsRecorder != nil,
+		"rate-limiter", rateLimiter != nil,
+		"experiments", experimentManager != nil,
+		"cost-tracker", costTracker != nil,
+	)
+
+	// Setup inference proxy server with all features
+	proxyConfig := proxy.DefaultConfig()
+	proxyConfig.Addr = proxyAddr
+	proxyServer := proxy.NewServer(
+		proxyConfig,
+		routeCache,
+		mgr.GetClient(),
+		ctrl.Log.WithName("proxy"),
+		proxy.WithMetrics(metricsRecorder),
+		proxy.WithRateLimiter(rateLimiter),
+		proxy.WithExperiments(experimentManager),
+		proxy.WithCostTracker(costTracker),
+	)
+
+	// Add proxy server to manager as a runnable
+	if err := mgr.Add(proxyServer); err != nil {
+		setupLog.Error(err, "unable to add proxy server to manager")
+		os.Exit(1)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
@@ -196,7 +251,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info("starting manager",
+		"proxy-addr", proxyAddr,
+		"health-probe-addr", probeAddr,
+	)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

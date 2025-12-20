@@ -47,13 +47,14 @@ AI Inference Gateway provides a unified control plane for all your inference tra
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Multi-Backend Routing** | Route requests to KServe, external APIs, or K8s services | Planned |
-| **Weighted Traffic Split** | Distribute traffic across backends by percentage | Planned |
-| **Fallback Chains** | Automatic failover through ordered backend list | Planned |
-| **A/B Testing** | Statistical testing with configurable traffic splits | Planned |
-| **Rate Limiting** | Per-user and global rate limits | Planned |
-| **Cost Tracking** | Track cost per request with token-based pricing | Planned |
-| **Health Checks** | Automatic backend health monitoring | Planned |
+| **Multi-Backend Routing** | Route requests to KServe, external APIs, or K8s services | Implemented |
+| **Weighted Traffic Split** | Distribute traffic across backends by percentage | Implemented |
+| **Fallback Chains** | Automatic failover through ordered backend list | Implemented |
+| **A/B Testing** | Consistent hashing for deterministic user assignment | Implemented |
+| **Rate Limiting** | Per-route and per-user token bucket rate limiting | Implemented |
+| **Cost Tracking** | Track cost per request with token-based pricing | Implemented |
+| **Health Checks** | Automatic backend health monitoring with thresholds | Implemented |
+| **Prometheus Metrics** | Request counts, latency histograms, error tracking | Implemented |
 
 ### Supported Backends
 
@@ -244,29 +245,29 @@ Defines a backend service for inference requests.
 
 ## Roadmap
 
-### Phase 1: Core Routing (Current)
+### Phase 1: Core Routing - Complete
 - [x] Project scaffolding with Kubebuilder
-- [x] InferenceRoute CRD design
-- [x] InferenceBackend CRD design
-- [ ] Basic routing controller
-- [ ] KServe backend integration
-- [ ] External API backend support
+- [x] InferenceRoute and InferenceBackend CRD design
+- [x] Route and Backend controllers with reconciliation
+- [x] KServe, External API, and Kubernetes backend support
+- [x] Embedded reverse proxy with request routing
 
-### Phase 2: Intelligent Features
-- [ ] Weighted traffic splitting
-- [ ] Fallback chain implementation
-- [ ] Health check integration
-- [ ] Rate limiting
+### Phase 2: Intelligent Features - Complete
+- [x] Weighted traffic splitting across backends
+- [x] Fallback chain with per-attempt timeouts
+- [x] Health check integration with failure thresholds
+- [x] Token bucket rate limiting (per-route and per-user)
 
-### Phase 3: Advanced Capabilities
-- [ ] A/B testing with statistical analysis
-- [ ] Cost tracking and reporting
-- [ ] Prometheus metrics export
+### Phase 3: Advanced Capabilities - Complete
+- [x] A/B testing with consistent hashing
+- [x] Cost tracking with provider-specific token parsing
+- [x] Prometheus metrics (requests, latency, errors, costs)
 - [ ] Grafana dashboards
 
-### Phase 4: Production Ready
+### Phase 4: Production Ready - In Progress
 - [ ] Semantic caching
 - [ ] Request/response logging
+- [ ] Circuit breaker pattern
 - [ ] Multi-cluster support
 - [ ] CNCF Sandbox submission
 
