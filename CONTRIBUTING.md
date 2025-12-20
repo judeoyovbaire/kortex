@@ -184,8 +184,7 @@ We welcome contributions in these areas:
 
 ### Observability
 - Grafana dashboard templates
-- OpenTelemetry tracing integration
-- Custom metrics
+- Custom metrics and alerting rules
 
 ### Documentation
 - API documentation
