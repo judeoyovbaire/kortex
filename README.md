@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start"><img alt="Version" src="https://img.shields.io/badge/version-v0.1.0--alpha-blue"></a>
+  <a href="#-quick-start"><img alt="Version" src="https://img.shields.io/badge/version-v0.3.0-blue"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-green"></a>
   <a href="https://kubernetes.io"><img alt="Kubernetes" src="https://img.shields.io/badge/kubernetes-1.32%2B-326CE5?logo=kubernetes&logoColor=white"></a>
   <a href="https://golang.org"><img alt="Go Version" src="https://img.shields.io/badge/go-1.24%2B-00ADD8?logo=go&logoColor=white"></a>
