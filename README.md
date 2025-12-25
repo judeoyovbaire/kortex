@@ -170,11 +170,11 @@ curl http://localhost:8080/v1/chat/completions \
 - [x] Real-time cost tracking
 - [x] Health check monitoring
 
-### Phase 3: Cloud Native (In Progress)
+### Phase 3: Cloud Native (Complete)
 - [x] **v0.2:** OpenTelemetry (OTLP) Tracing Support
 - [x] **v0.2:** Smart routing (cost-based, latency-based, context-length)
-- [ ] **v0.3:** Circuit Breakers & Retries
-- [ ] Configuration hot-reload
+- [x] **v0.3:** Circuit Breakers & Retries (exponential backoff, jitter, half-open state)
+- [x] Configuration hot-reload (fsnotify-based file watching)
 
 ### Phase 4: Enterprise (Planned)
 - [ ] **v1.0:** Multi-tenancy support

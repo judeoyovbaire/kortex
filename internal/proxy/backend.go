@@ -39,24 +39,46 @@ import (
 
 // BackendHandler executes requests against backends with fallback support
 type BackendHandler struct {
-	cache       *cache.Store
-	client      client.Client
-	log         logr.Logger
-	metrics     *MetricsRecorder
-	costTracker *CostTracker
-	tracer      *tracing.Tracer
+	cache          *cache.Store
+	client         client.Client
+	log            logr.Logger
+	metrics        *MetricsRecorder
+	costTracker    *CostTracker
+	tracer         *tracing.Tracer
+	circuitBreaker *CircuitBreakerManager
+	retrier        *Retrier
 }
 
 // NewBackendHandler creates a new backend handler
 func NewBackendHandler(store *cache.Store, k8sClient client.Client, log logr.Logger, metrics *MetricsRecorder, costTracker *CostTracker, tracer *tracing.Tracer) *BackendHandler {
 	return &BackendHandler{
-		cache:       store,
-		client:      k8sClient,
-		log:         log.WithName("backend-handler"),
-		metrics:     metrics,
-		costTracker: costTracker,
-		tracer:      tracer,
+		cache:          store,
+		client:         k8sClient,
+		log:            log.WithName("backend-handler"),
+		metrics:        metrics,
+		costTracker:    costTracker,
+		tracer:         tracer,
+		circuitBreaker: NewCircuitBreakerManager(DefaultCircuitBreakerConfig(), log),
+		retrier:        NewRetrier(DefaultRetryConfig(), log),
 	}
+}
+
+// SetCircuitBreaker sets a custom circuit breaker manager
+func (h *BackendHandler) SetCircuitBreaker(cb *CircuitBreakerManager) {
+	h.circuitBreaker = cb
+}
+
+// SetRetrier sets a custom retrier
+func (h *BackendHandler) SetRetrier(r *Retrier) {
+	h.retrier = r
+}
+
+// GetCircuitBreakerStats returns stats for all circuit breakers
+func (h *BackendHandler) GetCircuitBreakerStats() map[string]CircuitBreakerStats {
+	if h.circuitBreaker == nil {
+		return nil
+	}
+	return h.circuitBreaker.AllStats()
 }
 
 // ExecuteWithFallback attempts to execute the request against the primary backend,
@@ -80,6 +102,15 @@ func (h *BackendHandler) ExecuteWithFallback(
 	var lastErr error
 	var previousBackend string
 	for i, backendName := range chain {
+		// Check circuit breaker first
+		if h.circuitBreaker != nil {
+			if err := h.circuitBreaker.Allow(backendName); err != nil {
+				h.log.V(1).Info("Circuit breaker blocking backend", "backend", backendName, "error", err)
+				lastErr = err
+				continue
+			}
+		}
+
 		// Fetch backend from cache
 		backend, ok := h.cache.GetBackendByName(route.Namespace, backendName)
 		if !ok {
@@ -116,6 +147,15 @@ func (h *BackendHandler) ExecuteWithFallback(
 		// Decrement active requests
 		if h.metrics != nil {
 			h.metrics.DecActiveRequests(backendName)
+		}
+
+		// Record circuit breaker result
+		if h.circuitBreaker != nil {
+			if err != nil || statusCode >= 500 {
+				h.circuitBreaker.RecordFailure(backendName)
+			} else {
+				h.circuitBreaker.RecordSuccess(backendName)
+			}
 		}
 
 		if err == nil {

@@ -38,6 +38,7 @@ import (
 
 	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
 	"github.com/judeoyovbaire/kortex/internal/cache"
+	"github.com/judeoyovbaire/kortex/internal/config"
 	"github.com/judeoyovbaire/kortex/internal/controller"
 	"github.com/judeoyovbaire/kortex/internal/health"
 	"github.com/judeoyovbaire/kortex/internal/proxy"
@@ -74,7 +75,9 @@ func main() {
 	var smartRoutingFastModelThreshold int
 	var smartRoutingLongContextBackend string
 	var smartRoutingFastModelBackend string
+	var configPath string
 	var tlsOpts []func(*tls.Config)
+	flag.StringVar(&configPath, "config", "", "Path to kortex configuration file for hot-reload support.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -301,6 +304,52 @@ func main() {
 	if err := mgr.Add(proxyServer); err != nil {
 		setupLog.Error(err, "unable to add proxy server to manager")
 		os.Exit(1)
+	}
+
+	// Initialize configuration hot-reload if config path is provided
+	if configPath != "" {
+		configWatcher, err := config.NewWatcher(configPath, ctrl.Log)
+		if err != nil {
+			setupLog.Error(err, "failed to create config watcher")
+			os.Exit(1)
+		}
+
+		// Register handlers for configuration changes
+		configWatcher.OnChange(func(newConfig *config.KortexConfig) {
+			setupLog.Info("Configuration changed, applying updates",
+				"version", newConfig.Version,
+				"smartRouting.enabled", newConfig.SmartRouting.Enabled,
+				"rateLimits.enabled", newConfig.RateLimits.Enabled,
+			)
+
+			// Update rate limiter settings
+			if rateLimiter != nil {
+				if newConfig.RateLimits.Enabled {
+					rateLimiter.SetDefaultLimit(newConfig.RateLimits.DefaultRequestsPerMinute)
+				}
+			}
+
+			// Update smart router settings
+			if smartRouter != nil && newConfig.SmartRouting.Enabled {
+				smartRouter.UpdateConfig(proxy.SmartRouterConfig{
+					LongContextThreshold:   newConfig.SmartRouting.LongContextThreshold,
+					FastModelThreshold:     newConfig.SmartRouting.FastModelThreshold,
+					LongContextBackend:     newConfig.SmartRouting.LongContextBackend,
+					FastModelBackend:       newConfig.SmartRouting.FastModelBackend,
+					EnableCostOptimization: newConfig.SmartRouting.EnableCostOptimization,
+				})
+			}
+		})
+
+		// Start the config watcher
+		ctx := ctrl.SetupSignalHandler()
+		if err := configWatcher.Start(ctx); err != nil {
+			setupLog.Error(err, "failed to start config watcher")
+			os.Exit(1)
+		}
+		defer configWatcher.Stop()
+
+		setupLog.Info("Configuration hot-reload enabled", "config-path", configPath)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

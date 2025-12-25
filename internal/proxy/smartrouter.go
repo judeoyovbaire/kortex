@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 
@@ -61,6 +62,7 @@ func DefaultSmartRouterConfig() SmartRouterConfig {
 
 // SmartRouter provides intelligent routing based on request characteristics
 type SmartRouter struct {
+	mu     sync.RWMutex
 	config SmartRouterConfig
 	log    logr.Logger
 }
@@ -71,6 +73,29 @@ func NewSmartRouter(config SmartRouterConfig, log logr.Logger) *SmartRouter {
 		config: config,
 		log:    log.WithName("smart-router"),
 	}
+}
+
+// UpdateConfig updates the smart router configuration
+// This is called when configuration is hot-reloaded
+func (s *SmartRouter) UpdateConfig(newConfig SmartRouterConfig) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.config = newConfig
+	s.log.Info("Smart router configuration updated",
+		"long_context_threshold", newConfig.LongContextThreshold,
+		"fast_model_threshold", newConfig.FastModelThreshold,
+		"long_context_backend", newConfig.LongContextBackend,
+		"fast_model_backend", newConfig.FastModelBackend,
+		"cost_optimization", newConfig.EnableCostOptimization,
+	)
+}
+
+// GetConfig returns the current configuration
+func (s *SmartRouter) GetConfig() SmartRouterConfig {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.config
 }
 
 // RouteDecision represents a smart routing decision

@@ -240,3 +240,23 @@ type RateLimiterStats struct {
 	RouteCount int
 	UserCount  int
 }
+
+// SetDefaultLimit updates the default rate limit for all new routes
+// This is called when configuration is hot-reloaded
+func (r *RateLimiter) SetDefaultLimit(requestsPerMinute int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if requestsPerMinute <= 0 {
+		return
+	}
+
+	rps := float64(requestsPerMinute) / 60.0
+	burst := requestsPerMinute
+
+	// Update all existing route limiters
+	for _, limiter := range r.routeLimiters {
+		limiter.SetLimit(rate.Limit(rps))
+		limiter.SetBurst(burst)
+	}
+}
