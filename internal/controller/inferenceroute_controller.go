@@ -31,8 +31,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
-	"github.com/judeoyovbaire/inference-gateway/internal/cache"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
+	"github.com/judeoyovbaire/kortex/internal/cache"
 )
 
 // Route phase constants

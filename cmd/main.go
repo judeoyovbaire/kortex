@@ -69,6 +69,11 @@ func main() {
 	var enableHTTP2 bool
 	var enableTracing bool
 	var otlpEndpoint string
+	var enableSmartRouting bool
+	var smartRoutingLongContextThreshold int
+	var smartRoutingFastModelThreshold int
+	var smartRoutingLongContextBackend string
+	var smartRoutingFastModelBackend string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -76,6 +81,11 @@ func main() {
 	flag.StringVar(&proxyAddr, "proxy-bind-address", ":8080", "The address the inference proxy binds to.")
 	flag.BoolVar(&enableTracing, "enable-tracing", false, "Enable OpenTelemetry tracing.")
 	flag.StringVar(&otlpEndpoint, "otlp-endpoint", "localhost:4317", "OTLP collector endpoint for tracing.")
+	flag.BoolVar(&enableSmartRouting, "enable-smart-routing", false, "Enable smart routing based on request characteristics.")
+	flag.IntVar(&smartRoutingLongContextThreshold, "smart-routing-long-context-threshold", 4000, "Token count threshold for long-context routing.")
+	flag.IntVar(&smartRoutingFastModelThreshold, "smart-routing-fast-model-threshold", 500, "Token count threshold for fast model routing.")
+	flag.StringVar(&smartRoutingLongContextBackend, "smart-routing-long-context-backend", "", "Backend name for long-context requests.")
+	flag.StringVar(&smartRoutingFastModelBackend, "smart-routing-fast-model-backend", "", "Backend name for short/fast requests.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -150,12 +160,9 @@ func main() {
 
 	// If the certificate is not specified, controller-runtime will automatically
 	// generate self-signed certificates for the metrics server. While convenient for development and testing,
-	// this setup is not recommended for production.
-	//
-	// TODO(user): If you enable certManager, uncomment the following lines:
-	// - [METRICS-WITH-CERTS] at config/default/kustomization.yaml to generate and use certificates
-	// managed by cert-manager for the metrics server.
-	// - [PROMETHEUS-WITH-CERTS] at config/prometheus/kustomization.yaml for TLS certification.
+	// this setup is not recommended for production. For production, configure cert-manager:
+	// - Enable [METRICS-WITH-CERTS] in config/default/kustomization.yaml
+	// - Enable [PROMETHEUS-WITH-CERTS] in config/prometheus/kustomization.yaml
 	if len(metricsCertPath) > 0 {
 		setupLog.Info("Initializing metrics certificate watcher using provided certificates",
 			"metrics-cert-path", metricsCertPath, "metrics-cert-name", metricsCertName, "metrics-cert-key", metricsCertKey)
@@ -246,12 +253,32 @@ func main() {
 		setupLog.Info("OpenTelemetry tracing enabled", "endpoint", otlpEndpoint)
 	}
 
+	// Initialize SmartRouter if enabled
+	var smartRouter *proxy.SmartRouter
+	if enableSmartRouting {
+		smartRouterConfig := proxy.SmartRouterConfig{
+			LongContextThreshold:   smartRoutingLongContextThreshold,
+			FastModelThreshold:     smartRoutingFastModelThreshold,
+			LongContextBackend:     smartRoutingLongContextBackend,
+			FastModelBackend:       smartRoutingFastModelBackend,
+			EnableCostOptimization: false,
+		}
+		smartRouter = proxy.NewSmartRouter(smartRouterConfig, ctrl.Log)
+		setupLog.Info("Smart routing enabled",
+			"long-context-threshold", smartRoutingLongContextThreshold,
+			"fast-model-threshold", smartRoutingFastModelThreshold,
+			"long-context-backend", smartRoutingLongContextBackend,
+			"fast-model-backend", smartRoutingFastModelBackend,
+		)
+	}
+
 	setupLog.Info("initialized proxy components",
 		"metrics", metricsRecorder != nil,
 		"rate-limiter", rateLimiter != nil,
 		"experiments", experimentManager != nil,
 		"cost-tracker", costTracker != nil,
 		"tracer", tracer != nil,
+		"smart-router", smartRouter != nil,
 	)
 
 	// Setup inference proxy server with all features
@@ -267,6 +294,7 @@ func main() {
 		proxy.WithExperiments(experimentManager),
 		proxy.WithCostTracker(costTracker),
 		proxy.WithTracer(tracer),
+		proxy.WithServerSmartRouter(smartRouter),
 	)
 
 	// Add proxy server to manager as a runnable

@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
 )
 
 func TestRateLimiter_Allow_NilConfig(t *testing.T) {

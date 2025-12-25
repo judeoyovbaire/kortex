@@ -43,6 +43,7 @@ type Router struct {
 	experiments *ExperimentManager
 	costTracker *CostTracker
 	tracer      *tracing.Tracer
+	smartRouter *SmartRouter
 }
 
 // RouterOption is a functional option for configuring the router
@@ -73,6 +74,13 @@ func WithRouterCostTracker(ct *CostTracker) RouterOption {
 func WithRouterTracer(t *tracing.Tracer) RouterOption {
 	return func(r *Router) {
 		r.tracer = t
+	}
+}
+
+// WithSmartRouter adds smart routing capabilities to the router
+func WithSmartRouter(sr *SmartRouter) RouterOption {
+	return func(r *Router) {
+		r.smartRouter = sr
 	}
 }
 
@@ -146,8 +154,42 @@ func (r *Router) HandleRequest(ctx context.Context, w http.ResponseWriter, req *
 		return
 	}
 
-	// Select backend using weighted selection if multiple backends
-	selectedBackend := r.selectWeightedBackend(backends)
+	// Select backend - first try smart routing, then fall back to weighted selection
+	var selectedBackend gatewayv1alpha1.BackendRef
+	var smartDecision *RouteDecision
+
+	if r.smartRouter != nil {
+		smartDecision = r.smartRouter.SelectBackend(req, route)
+		if smartDecision != nil && smartDecision.Backend != "" {
+			// Smart router made a decision, use that backend
+			selectedBackend = gatewayv1alpha1.BackendRef{Name: smartDecision.Backend}
+
+			// Add smart routing attributes to trace span
+			if r.tracer != nil {
+				if span := trace.SpanFromContext(ctx); span.IsRecording() {
+					span.SetAttributes(
+						attribute.String("kortex.smartrouter.backend", smartDecision.Backend),
+						attribute.String("kortex.smartrouter.reason", smartDecision.Reason),
+						attribute.String("kortex.smartrouter.category", smartDecision.Category),
+						attribute.Int("kortex.smartrouter.estimated_tokens", smartDecision.EstimatedTokens),
+					)
+				}
+			}
+
+			r.log.V(1).Info("Smart routing decision applied",
+				"backend", smartDecision.Backend,
+				"category", smartDecision.Category,
+				"estimated_tokens", smartDecision.EstimatedTokens,
+				"reason", smartDecision.Reason,
+			)
+		} else {
+			// Smart router didn't make a decision, use weighted selection
+			selectedBackend = r.selectWeightedBackend(backends)
+		}
+	} else {
+		// No smart router configured, use weighted selection
+		selectedBackend = r.selectWeightedBackend(backends)
+	}
 
 	// Apply A/B experiment if configured
 	var experimentResult *ExperimentResult

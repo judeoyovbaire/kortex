@@ -21,7 +21,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
+)
+
+// Health status constants for backend health checks
+const (
+	HealthStatusHealthy   = "Healthy"
+	HealthStatusUnhealthy = "Unhealthy"
+	HealthStatusUnknown   = "Unknown"
 )
 
 // Store provides thread-safe access to InferenceRoutes and InferenceBackends.
@@ -158,7 +165,7 @@ func (s *Store) GetHealthyBackend(namespace, name string) (*gatewayv1alpha1.Infe
 	if !ok {
 		return nil, false
 	}
-	if backend.Status.Health != "Healthy" {
+	if backend.Status.Health != HealthStatusHealthy {
 		return nil, false
 	}
 	return backend, true

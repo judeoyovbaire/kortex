@@ -227,6 +227,19 @@ func (t *Tracer) StartRouterSpan(ctx context.Context, routeName string) (context
 	return ctx, span
 }
 
+// StartSmartRouterSpan starts a span for smart routing decisions
+func (t *Tracer) StartSmartRouterSpan(ctx context.Context, backend, category, reason string, estimatedTokens int) (context.Context, trace.Span) {
+	ctx, span := t.tracer.Start(ctx, "kortex.smartrouter.decision",
+		trace.WithAttributes(
+			attribute.String("kortex.smartrouter.backend", backend),
+			attribute.String("kortex.smartrouter.category", category),
+			attribute.String("kortex.smartrouter.reason", reason),
+			attribute.Int("kortex.smartrouter.estimated_tokens", estimatedTokens),
+		),
+	)
+	return ctx, span
+}
+
 // SetSpanError marks a span as having an error
 func SetSpanError(span trace.Span, err error) {
 	span.RecordError(err)

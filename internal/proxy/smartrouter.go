@@ -258,13 +258,16 @@ func (s *SmartRouter) CostBasedSelection(
 	return bestBackend
 }
 
-// parseCostString converts a cost string (e.g., "0.0001") to a float64
+// parseCostString converts a cost string (e.g., "0.0001") to a float64.
+// Returns 0 if the string is empty or cannot be parsed.
 func parseCostString(s string) float64 {
 	if s == "" {
 		return 0
 	}
 	var f float64
-	_, _ = fmt.Sscanf(s, "%f", &f)
+	if _, err := fmt.Sscanf(s, "%f", &f); err != nil {
+		return 0
+	}
 	return f
 }
 

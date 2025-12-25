@@ -20,7 +20,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
 )
 
 func TestExperimentManager_GetBackend_NilExperiment(t *testing.T) {

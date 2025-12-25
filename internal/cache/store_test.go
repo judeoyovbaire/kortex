@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
 )
 
 func TestNewStore(t *testing.T) {

@@ -20,7 +20,7 @@ import (
 	"hash/fnv"
 	"net/http"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
 )
 
 const (

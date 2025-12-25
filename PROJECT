@@ -3,27 +3,27 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.10.1
-domain: inference-gateway.io
+domain: kortex.io
 layout:
 - go.kubebuilder.io/v4
-projectName: inference-gateway
-repo: github.com/judeoyovbaire/inference-gateway
+projectName: kortex
+repo: github.com/judeoyovbaire/kortex
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: inference-gateway.io
+  domain: kortex.io
   group: gateway
   kind: InferenceRoute
-  path: github.com/judeoyovbaire/inference-gateway/api/v1alpha1
+  path: github.com/judeoyovbaire/kortex/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
-  domain: inference-gateway.io
+  domain: kortex.io
   group: gateway
   kind: InferenceBackend
-  path: github.com/judeoyovbaire/inference-gateway/api/v1alpha1
+  path: github.com/judeoyovbaire/kortex/api/v1alpha1
   version: v1alpha1
 version: "3"

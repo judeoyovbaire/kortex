@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
 )
 
 // Result represents the outcome of a health check

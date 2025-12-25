@@ -77,6 +77,7 @@ type Server struct {
 	experiments *ExperimentManager
 	costTracker *CostTracker
 	tracer      *tracing.Tracer
+	smartRouter *SmartRouter
 }
 
 // ServerOption is a functional option for configuring the server
@@ -117,6 +118,13 @@ func WithTracer(t *tracing.Tracer) ServerOption {
 	}
 }
 
+// WithServerSmartRouter adds smart routing to the server
+func WithServerSmartRouter(sr *SmartRouter) ServerOption {
+	return func(s *Server) {
+		s.smartRouter = sr
+	}
+}
+
 // NewServer creates a new proxy server
 func NewServer(cfg Config, store *cache.Store, k8sClient client.Client, log logr.Logger, opts ...ServerOption) *Server {
 	s := &Server{
@@ -137,6 +145,7 @@ func NewServer(cfg Config, store *cache.Store, k8sClient client.Client, log logr
 		WithRouterExperiments(s.experiments),
 		WithRouterCostTracker(s.costTracker),
 		WithRouterTracer(s.tracer),
+		WithSmartRouter(s.smartRouter),
 	)
 
 	// Create the HTTP server
