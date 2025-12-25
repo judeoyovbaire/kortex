@@ -1,6 +1,6 @@
-# Contributing to AI Inference Gateway
+# Contributing to Kortex
 
-Thank you for your interest in contributing to AI Inference Gateway! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Kortex! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -20,8 +20,8 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/inference-gateway.git
-   cd inference-gateway
+   git clone https://github.com/YOUR_USERNAME/kortex.git
+   cd kortex
    ```
 
 2. **Install dependencies**
@@ -94,10 +94,10 @@ By participating in this project, you agree to maintain a respectful and inclusi
 make build
 
 # Build and push Docker image
-make docker-build docker-push IMG=<your-registry>/inference-gateway:tag
+make docker-build docker-push IMG=<your-registry>/kortex:tag
 
 # Deploy to cluster
-make deploy IMG=<your-registry>/inference-gateway:tag
+make deploy IMG=<your-registry>/kortex:tag
 ```
 
 ## Code Style Guidelines

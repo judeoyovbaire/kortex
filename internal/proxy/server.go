@@ -24,9 +24,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/judeoyovbaire/inference-gateway/internal/cache"
+	"github.com/judeoyovbaire/kortex/internal/cache"
+	"github.com/judeoyovbaire/kortex/internal/tracing"
 )
 
 // Config holds proxy server configuration
@@ -74,6 +76,7 @@ type Server struct {
 	rateLimiter *RateLimiter
 	experiments *ExperimentManager
 	costTracker *CostTracker
+	tracer      *tracing.Tracer
 }
 
 // ServerOption is a functional option for configuring the server
@@ -107,6 +110,13 @@ func WithCostTracker(ct *CostTracker) ServerOption {
 	}
 }
 
+// WithTracer adds OpenTelemetry tracing to the server
+func WithTracer(t *tracing.Tracer) ServerOption {
+	return func(s *Server) {
+		s.tracer = t
+	}
+}
+
 // NewServer creates a new proxy server
 func NewServer(cfg Config, store *cache.Store, k8sClient client.Client, log logr.Logger, opts ...ServerOption) *Server {
 	s := &Server{
@@ -126,6 +136,7 @@ func NewServer(cfg Config, store *cache.Store, k8sClient client.Client, log logr
 		WithRouterMetrics(s.metrics),
 		WithRouterExperiments(s.experiments),
 		WithRouterCostTracker(s.costTracker),
+		WithRouterTracer(s.tracer),
 	)
 
 	// Create the HTTP server
@@ -143,6 +154,14 @@ func NewServer(cfg Config, store *cache.Store, k8sClient client.Client, log logr
 // ServeHTTP implements http.Handler
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
+	ctx := r.Context()
+
+	// Start tracing span for the request
+	if s.tracer != nil {
+		var span trace.Span
+		ctx, span = s.tracer.StartRequestSpan(ctx, r)
+		defer span.End()
+	}
 
 	// Check request body size limit
 	if s.config.MaxRequestBodySize > 0 && r.ContentLength > s.config.MaxRequestBodySize {
@@ -196,8 +215,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(result.Remaining))
 	}
 
-	// Handle the request through the router
-	s.router.HandleRequest(r.Context(), w, r)
+	// Handle the request through the router with traced context
+	s.router.HandleRequest(ctx, w, r)
 
 	// Log the request
 	duration := time.Since(start)

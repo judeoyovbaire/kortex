@@ -24,14 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
-	"github.com/judeoyovbaire/inference-gateway/internal/cache"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
+	"github.com/judeoyovbaire/kortex/internal/cache"
 )
 
 func TestBackendHandler_buildFallbackChain_PrimaryOnly(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	route := &gatewayv1alpha1.InferenceRoute{
 		Spec: gatewayv1alpha1.InferenceRouteSpec{
@@ -53,7 +53,7 @@ func TestBackendHandler_buildFallbackChain_PrimaryOnly(t *testing.T) {
 func TestBackendHandler_buildFallbackChain_WithFallbacks(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	route := &gatewayv1alpha1.InferenceRoute{
 		Spec: gatewayv1alpha1.InferenceRouteSpec{
@@ -81,7 +81,7 @@ func TestBackendHandler_buildFallbackChain_WithFallbacks(t *testing.T) {
 func TestBackendHandler_buildFallbackChain_NoDuplicates(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	// Primary is also in fallback list - should not duplicate
 	route := &gatewayv1alpha1.InferenceRoute{
@@ -110,7 +110,7 @@ func TestBackendHandler_buildFallbackChain_NoDuplicates(t *testing.T) {
 func TestBackendHandler_buildTargetURL_External(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	backend := &gatewayv1alpha1.InferenceBackend{
 		Spec: gatewayv1alpha1.InferenceBackendSpec{
@@ -134,7 +134,7 @@ func TestBackendHandler_buildTargetURL_External(t *testing.T) {
 func TestBackendHandler_buildTargetURL_Kubernetes(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	backend := &gatewayv1alpha1.InferenceBackend{
 		ObjectMeta: metav1.ObjectMeta{
@@ -164,7 +164,7 @@ func TestBackendHandler_buildTargetURL_Kubernetes(t *testing.T) {
 func TestBackendHandler_buildTargetURL_Kubernetes_DefaultNamespace(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	backend := &gatewayv1alpha1.InferenceBackend{
 		ObjectMeta: metav1.ObjectMeta{
@@ -193,7 +193,7 @@ func TestBackendHandler_buildTargetURL_Kubernetes_DefaultNamespace(t *testing.T)
 func TestBackendHandler_buildTargetURL_KServe(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	backend := &gatewayv1alpha1.InferenceBackend{
 		ObjectMeta: metav1.ObjectMeta{
@@ -222,7 +222,7 @@ func TestBackendHandler_buildTargetURL_KServe(t *testing.T) {
 func TestBackendHandler_buildTargetURL_Errors(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	tests := []struct {
 		name    string
@@ -345,7 +345,7 @@ func TestNewBackendHandler(t *testing.T) {
 	metrics := NewMetricsRecorder()
 	costTracker := NewCostTracker(nil)
 
-	handler := NewBackendHandler(store, nil, log, metrics, costTracker)
+	handler := NewBackendHandler(store, nil, log, metrics, costTracker, nil)
 
 	if handler == nil {
 		t.Fatal("expected non-nil handler")
@@ -364,7 +364,7 @@ func TestNewBackendHandler(t *testing.T) {
 func TestBackendHandler_ExecuteWithFallback_BackendNotFound(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	// No backends in cache
 
@@ -392,7 +392,7 @@ func TestBackendHandler_ExecuteWithFallback_BackendNotFound(t *testing.T) {
 func TestBackendHandler_ExecuteWithFallback_SkipsUnhealthyBackends(t *testing.T) {
 	store := cache.NewStore()
 	log := zap.New()
-	handler := NewBackendHandler(store, nil, log, nil, nil)
+	handler := NewBackendHandler(store, nil, log, nil, nil, nil)
 
 	// Add unhealthy backend
 	unhealthyBackend := &gatewayv1alpha1.InferenceBackend{

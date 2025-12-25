@@ -27,12 +27,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
-	"github.com/judeoyovbaire/inference-gateway/internal/cache"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
+	"github.com/judeoyovbaire/kortex/internal/cache"
+	"github.com/judeoyovbaire/kortex/internal/tracing"
 )
 
 // BackendHandler executes requests against backends with fallback support
@@ -42,16 +44,18 @@ type BackendHandler struct {
 	log         logr.Logger
 	metrics     *MetricsRecorder
 	costTracker *CostTracker
+	tracer      *tracing.Tracer
 }
 
 // NewBackendHandler creates a new backend handler
-func NewBackendHandler(store *cache.Store, k8sClient client.Client, log logr.Logger, metrics *MetricsRecorder, costTracker *CostTracker) *BackendHandler {
+func NewBackendHandler(store *cache.Store, k8sClient client.Client, log logr.Logger, metrics *MetricsRecorder, costTracker *CostTracker, tracer *tracing.Tracer) *BackendHandler {
 	return &BackendHandler{
 		cache:       store,
 		client:      k8sClient,
 		log:         log.WithName("backend-handler"),
 		metrics:     metrics,
 		costTracker: costTracker,
+		tracer:      tracer,
 	}
 }
 
@@ -196,6 +200,15 @@ func (h *BackendHandler) executeRequest(
 		provider = backend.Spec.External.Provider
 	}
 
+	// Start backend span if tracing is enabled
+	var span trace.Span
+	if h.tracer != nil {
+		ctx, span = h.tracer.StartBackendSpan(ctx, backend.Name, string(backend.Spec.Type), targetURL.String())
+		defer func() {
+			span.End()
+		}()
+	}
+
 	// Track status code
 	statusCode := http.StatusOK
 
@@ -256,6 +269,16 @@ func (h *BackendHandler) executeRequest(
 	// Update status code from recorder
 	if recorder.statusCode != http.StatusOK {
 		statusCode = recorder.statusCode
+	}
+
+	// Add status code to span if tracing enabled
+	if span != nil {
+		tracing.AddBackendAttributes(span, statusCode, 0, provider)
+		if statusCode >= 500 {
+			tracing.SetSpanError(span, fmt.Errorf("backend returned status %d", statusCode))
+		} else {
+			tracing.SetSpanOK(span)
+		}
 	}
 
 	// Check if the request failed with a server error

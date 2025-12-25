@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -35,11 +36,12 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
-	"github.com/judeoyovbaire/inference-gateway/internal/cache"
-	"github.com/judeoyovbaire/inference-gateway/internal/controller"
-	"github.com/judeoyovbaire/inference-gateway/internal/health"
-	"github.com/judeoyovbaire/inference-gateway/internal/proxy"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
+	"github.com/judeoyovbaire/kortex/internal/cache"
+	"github.com/judeoyovbaire/kortex/internal/controller"
+	"github.com/judeoyovbaire/kortex/internal/health"
+	"github.com/judeoyovbaire/kortex/internal/proxy"
+	"github.com/judeoyovbaire/kortex/internal/tracing"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -65,11 +67,15 @@ func main() {
 	var proxyAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableTracing bool
+	var otlpEndpoint string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&proxyAddr, "proxy-bind-address", ":8080", "The address the inference proxy binds to.")
+	flag.BoolVar(&enableTracing, "enable-tracing", false, "Enable OpenTelemetry tracing.")
+	flag.StringVar(&otlpEndpoint, "otlp-endpoint", "localhost:4317", "OTLP collector endpoint for tracing.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -165,7 +171,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "b59fb625.inference-gateway.io",
+		LeaderElectionID:       "b59fb625.kortex.io",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -215,11 +221,37 @@ func main() {
 	experimentManager := proxy.NewExperimentManager(metricsRecorder)
 	costTracker := proxy.NewCostTracker(metricsRecorder)
 
+	// Initialize OpenTelemetry tracer if enabled
+	var tracer *tracing.Tracer
+	if enableTracing {
+		tracingConfig := tracing.Config{
+			Enabled:        true,
+			Endpoint:       otlpEndpoint,
+			ServiceName:    "kortex-gateway",
+			ServiceVersion: "v0.1.0",
+			SampleRate:     1.0,
+			Insecure:       true,
+		}
+		var err error
+		tracer, err = tracing.NewTracer(tracingConfig)
+		if err != nil {
+			setupLog.Error(err, "failed to initialize tracer")
+			os.Exit(1)
+		}
+		defer func() {
+			if err := tracer.Shutdown(context.Background()); err != nil {
+				setupLog.Error(err, "failed to shutdown tracer")
+			}
+		}()
+		setupLog.Info("OpenTelemetry tracing enabled", "endpoint", otlpEndpoint)
+	}
+
 	setupLog.Info("initialized proxy components",
 		"metrics", metricsRecorder != nil,
 		"rate-limiter", rateLimiter != nil,
 		"experiments", experimentManager != nil,
 		"cost-tracker", costTracker != nil,
+		"tracer", tracer != nil,
 	)
 
 	// Setup inference proxy server with all features
@@ -234,6 +266,7 @@ func main() {
 		proxy.WithRateLimiter(rateLimiter),
 		proxy.WithExperiments(experimentManager),
 		proxy.WithCostTracker(costTracker),
+		proxy.WithTracer(tracer),
 	)
 
 	// Add proxy server to manager as a runnable

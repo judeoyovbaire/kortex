@@ -24,11 +24,14 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	gatewayv1alpha1 "github.com/judeoyovbaire/inference-gateway/api/v1alpha1"
-	"github.com/judeoyovbaire/inference-gateway/internal/cache"
+	gatewayv1alpha1 "github.com/judeoyovbaire/kortex/api/v1alpha1"
+	"github.com/judeoyovbaire/kortex/internal/cache"
+	"github.com/judeoyovbaire/kortex/internal/tracing"
 )
 
 // Router handles request routing to backends
@@ -39,6 +42,7 @@ type Router struct {
 	metrics     *MetricsRecorder
 	experiments *ExperimentManager
 	costTracker *CostTracker
+	tracer      *tracing.Tracer
 }
 
 // RouterOption is a functional option for configuring the router
@@ -65,6 +69,13 @@ func WithRouterCostTracker(ct *CostTracker) RouterOption {
 	}
 }
 
+// WithRouterTracer adds OpenTelemetry tracing to the router
+func WithRouterTracer(t *tracing.Tracer) RouterOption {
+	return func(r *Router) {
+		r.tracer = t
+	}
+}
+
 // NewRouter creates a new router
 func NewRouter(store *cache.Store, k8sClient client.Client, log logr.Logger, opts ...RouterOption) *Router {
 	r := &Router{
@@ -77,8 +88,8 @@ func NewRouter(store *cache.Store, k8sClient client.Client, log logr.Logger, opt
 		opt(r)
 	}
 
-	// Create handler with metrics and cost tracker
-	r.handler = NewBackendHandler(store, k8sClient, log, r.metrics, r.costTracker)
+	// Create handler with metrics, cost tracker, and tracer
+	r.handler = NewBackendHandler(store, k8sClient, log, r.metrics, r.costTracker, r.tracer)
 
 	return r
 }
@@ -100,6 +111,17 @@ func (r *Router) HandleRequest(ctx context.Context, w http.ResponseWriter, req *
 		)
 		http.Error(w, "No matching route found", http.StatusNotFound)
 		return
+	}
+
+	// Start router span if tracing is enabled
+	if r.tracer != nil {
+		var span trace.Span
+		ctx, span = r.tracer.StartRouterSpan(ctx, route.Name)
+		defer span.End()
+		span.SetAttributes(
+			attribute.String("kortex.route.namespace", route.Namespace),
+			attribute.String("kortex.route.phase", string(route.Status.Phase)),
+		)
 	}
 
 	// Check route phase
