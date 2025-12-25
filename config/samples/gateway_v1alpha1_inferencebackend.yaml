@@ -1,8 +1,8 @@
-apiVersion: gateway.inference-gateway.io/v1alpha1
+apiVersion: gateway.kortex.io/v1alpha1
 kind: InferenceBackend
 metadata:
   labels:
-    app.kubernetes.io/name: inference-gateway
+    app.kubernetes.io/name: kortex
     app.kubernetes.io/managed-by: kustomize
   name: openai-gpt4
 spec:
@@ -26,11 +26,11 @@ spec:
     outputTokenCost: "0.06"
     currency: USD
 ---
-apiVersion: gateway.inference-gateway.io/v1alpha1
+apiVersion: gateway.kortex.io/v1alpha1
 kind: InferenceBackend
 metadata:
   labels:
-    app.kubernetes.io/name: inference-gateway
+    app.kubernetes.io/name: kortex
     app.kubernetes.io/managed-by: kustomize
   name: anthropic-claude
 spec:
@@ -54,11 +54,11 @@ spec:
     outputTokenCost: "0.075"
     currency: USD
 ---
-apiVersion: gateway.inference-gateway.io/v1alpha1
+apiVersion: gateway.kortex.io/v1alpha1
 kind: InferenceBackend
 metadata:
   labels:
-    app.kubernetes.io/name: inference-gateway
+    app.kubernetes.io/name: kortex
     app.kubernetes.io/managed-by: kustomize
   name: local-llama
 spec:

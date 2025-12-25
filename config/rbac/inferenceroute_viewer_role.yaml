@@ -1,7 +1,7 @@
-# This rule is not used by the project inference-gateway itself.
+# This rule is not used by the project kortex itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to gateway.inference-gateway.io resources.
+# Grants read-only access to gateway.kortex.io resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -9,12 +9,12 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: inference-gateway
+    app.kubernetes.io/name: kortex
     app.kubernetes.io/managed-by: kustomize
   name: inferenceroute-viewer-role
 rules:
 - apiGroups:
-  - gateway.inference-gateway.io
+  - gateway.kortex.io
   resources:
   - inferenceroutes
   verbs:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - gateway.inference-gateway.io
+  - gateway.kortex.io
   resources:
   - inferenceroutes/status
   verbs:

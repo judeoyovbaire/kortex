@@ -47,25 +47,47 @@ var (
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
 // temporary environment to validate project changes with the purpose of being used in CI jobs.
-// The default setup requires Kind, builds/loads the Manager Docker image locally, and installs
-// CertManager.
+//
+// Supported cluster providers (set via CLUSTER_PROVIDER env var):
+//   - kind (default): Uses Kind (Kubernetes IN Docker)
+//   - minikube: Uses Minikube
+//   - docker-desktop: Uses Docker Desktop's built-in Kubernetes
+//   - existing: Uses an existing cluster (assumes image is accessible via registry)
+//
+// Additional environment variables:
+//   - KIND_CLUSTER: Kind cluster name (default: "kind")
+//   - MINIKUBE_PROFILE: Minikube profile name (default: "minikube")
+//   - SKIP_IMAGE_BUILD: Skip building the Docker image (useful for CI with pre-built images)
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
-	_, _ = fmt.Fprintf(GinkgoWriter, "Starting inference-gateway integration test suite\n")
+	_, _ = fmt.Fprintf(GinkgoWriter, "Starting Kortex integration test suite\n")
 	RunSpecs(t, "e2e suite")
 }
 
 var _ = BeforeSuite(func() {
-	By("building the manager(Operator) image")
-	cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", projectImage))
-	_, err := utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager(Operator) image")
+	// Check if cluster is accessible
+	By("verifying cluster is accessible")
+	clusterInfo, err := utils.GetClusterInfo()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to access cluster. Ensure your cluster is running.")
+	_, _ = fmt.Fprintf(GinkgoWriter, "Cluster info:\n%s\n", clusterInfo)
 
-	// TODO(user): If you want to change the e2e test vendor from Kind, ensure the image is
-	// built and available before running the tests. Also, remove the following block.
-	By("loading the manager(Operator) image on Kind")
-	err = utils.LoadImageToKindClusterWithName(projectImage)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager(Operator) image into Kind")
+	// Build the Docker image unless skipped
+	skipImageBuild := os.Getenv("SKIP_IMAGE_BUILD") == "true"
+	if !skipImageBuild {
+		By("building the manager(Operator) image")
+		cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", projectImage))
+		_, err := utils.Run(cmd)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager(Operator) image")
+	} else {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping image build (SKIP_IMAGE_BUILD=true)\n")
+	}
+
+	// Load image to cluster using the configured provider
+	By("loading the manager(Operator) image to cluster")
+	provider := utils.GetClusterProvider()
+	_, _ = fmt.Fprintf(GinkgoWriter, "Using cluster provider: %s\n", provider)
+	err = utils.LoadImageToCluster(projectImage)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager(Operator) image to cluster")
 
 	// The tests-e2e are intended to run on a temporary cluster that is created and destroyed for testing.
 	// To prevent errors when tests run in environments with CertManager already installed,

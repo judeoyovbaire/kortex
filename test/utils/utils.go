@@ -35,6 +35,107 @@ const (
 	defaultKindCluster = "kind"
 )
 
+// ClusterProvider represents different Kubernetes cluster providers
+type ClusterProvider string
+
+const (
+	// ProviderKind uses Kind (Kubernetes IN Docker)
+	ProviderKind ClusterProvider = "kind"
+	// ProviderMinikube uses Minikube
+	ProviderMinikube ClusterProvider = "minikube"
+	// ProviderDockerDesktop uses Docker Desktop's built-in Kubernetes
+	ProviderDockerDesktop ClusterProvider = "docker-desktop"
+	// ProviderExisting uses an existing cluster (no image loading needed, assumes image is accessible)
+	ProviderExisting ClusterProvider = "existing"
+)
+
+// GetClusterProvider returns the configured cluster provider from CLUSTER_PROVIDER env var
+// Defaults to "kind" if not set
+func GetClusterProvider() ClusterProvider {
+	provider := os.Getenv("CLUSTER_PROVIDER")
+	switch strings.ToLower(provider) {
+	case "minikube":
+		return ProviderMinikube
+	case "docker-desktop", "dockerdesktop", "docker":
+		return ProviderDockerDesktop
+	case "existing", "external":
+		return ProviderExisting
+	default:
+		return ProviderKind
+	}
+}
+
+// LoadImageToCluster loads a Docker image to the configured cluster provider
+func LoadImageToCluster(imageName string) error {
+	provider := GetClusterProvider()
+	_, _ = fmt.Fprintf(GinkgoWriter, "Using cluster provider: %s\n", provider)
+
+	switch provider {
+	case ProviderKind:
+		return LoadImageToKindCluster(imageName)
+	case ProviderMinikube:
+		return LoadImageToMinikube(imageName)
+	case ProviderDockerDesktop:
+		// Docker Desktop K8s uses images directly from Docker daemon
+		_, _ = fmt.Fprintf(GinkgoWriter, "Docker Desktop: image %s available from local Docker daemon\n", imageName)
+		return nil
+	case ProviderExisting:
+		// For existing clusters, assume image is already accessible (e.g., pushed to registry)
+		_, _ = fmt.Fprintf(GinkgoWriter, "Existing cluster: assuming image %s is accessible\n", imageName)
+		return nil
+	default:
+		return fmt.Errorf("unknown cluster provider: %s", provider)
+	}
+}
+
+// LoadImageToKindCluster loads a local docker image to a Kind cluster
+func LoadImageToKindCluster(imageName string) error {
+	cluster := defaultKindCluster
+	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok {
+		cluster = v
+	}
+	kindBinary := defaultKindBinary
+	if v, ok := os.LookupEnv("KIND"); ok {
+		kindBinary = v
+	}
+
+	_, _ = fmt.Fprintf(GinkgoWriter, "Loading image %s to Kind cluster %s\n", imageName, cluster)
+	cmd := exec.Command(kindBinary, "load", "docker-image", imageName, "--name", cluster)
+	_, err := Run(cmd)
+	return err
+}
+
+// LoadImageToMinikube loads a local docker image to Minikube
+func LoadImageToMinikube(imageName string) error {
+	minikubeBinary := "minikube"
+	if v, ok := os.LookupEnv("MINIKUBE"); ok {
+		minikubeBinary = v
+	}
+
+	profile := "minikube"
+	if v, ok := os.LookupEnv("MINIKUBE_PROFILE"); ok {
+		profile = v
+	}
+
+	_, _ = fmt.Fprintf(GinkgoWriter, "Loading image %s to Minikube profile %s\n", imageName, profile)
+	cmd := exec.Command(minikubeBinary, "image", "load", imageName, "-p", profile)
+	_, err := Run(cmd)
+	return err
+}
+
+// IsClusterReady checks if the cluster is ready and accessible
+func IsClusterReady() bool {
+	cmd := exec.Command("kubectl", "cluster-info")
+	_, err := Run(cmd)
+	return err == nil
+}
+
+// GetClusterInfo returns information about the current cluster
+func GetClusterInfo() (string, error) {
+	cmd := exec.Command("kubectl", "cluster-info")
+	return Run(cmd)
+}
+
 func warnError(err error) {
 	_, _ = fmt.Fprintf(GinkgoWriter, "warning: %v\n", err)
 }
