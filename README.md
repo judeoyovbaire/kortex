@@ -176,11 +176,51 @@ curl http://localhost:8080/v1/chat/completions \
 - [x] **v0.3:** Circuit Breakers & Retries (exponential backoff, jitter, half-open state)
 - [x] Configuration hot-reload (fsnotify-based file watching)
 
-### Phase 4: Enterprise (Planned)
+### Phase 4: v2.0 Vision
+
+Kortex v2.0 expands from an inference gateway to a **unified control plane** for enterprise AI — combining multi-tenancy, caching, and agent governance.
+
+#### Enterprise Features
 - [ ] **v1.0:** Multi-tenancy support
 - [ ] Semantic caching
 - [ ] Enterprise SSO
 - [ ] Multi-cluster federation
+
+#### Agent Governance
+
+As AI moves from **Generative** (chatbots) to **Agentic** (autonomous systems), Kortex will provide a **governance layer for autonomous AI agents**.
+
+- [ ] **AgentPolicy CRD:** Define per-agent governance rules (budgets, allowed tools, blocked actions)
+- [ ] **Automatic Sidecar Injection:** MutatingWebhook injects governance proxy into pods labeled `agent: active`
+- [ ] **FinOps Enforcement:** Hard caps on daily token spend with automatic request blocking
+- [ ] **Tool Allowlisting:** Restrict which external APIs (Stripe, AWS, Slack) an agent can call
+- [ ] **Policy Engine (OPA/Rego):** Flexible rule evaluation beyond simple keyword matching
+- [ ] **Agent Observability:** Track "cost per reasoning step" and tool invocation patterns
+- [ ] **Semantic Drift Detection:** Detect when agent behavior deviates from expected patterns
+
+```yaml
+# Example: AgentPolicy CRD (v2.0)
+apiVersion: governance.kortex.io/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: finance-agent-guardrails
+spec:
+  budget:
+    maxDailySpendUSD: 50.00
+    alertThreshold: 80%
+  firewall:
+    allowedDomains:
+      - "api.openai.com"
+      - "api.stripe.com"
+    blockedActions:
+      - pattern: "DELETE.*FROM"
+        type: regex
+  audit:
+    logAllToolCalls: true
+    retentionDays: 30
+```
+
+> **Why this matters:** Standard firewalls protect the network (Layer 3/4). Kortex v2 protects the **intent** (Layer 7+) — ensuring autonomous agents operate within defined boundaries.
 
 ---
 
