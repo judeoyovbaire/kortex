@@ -7,14 +7,14 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start"><img alt="Version" src="https://img.shields.io/badge/version-v0.3.0-blue"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-green"></a>
   <a href="https://kubernetes.io"><img alt="Kubernetes" src="https://img.shields.io/badge/kubernetes-1.32%2B-326CE5?logo=kubernetes&logoColor=white"></a>
   <a href="https://golang.org"><img alt="Go Version" src="https://img.shields.io/badge/go-1.24%2B-00ADD8?logo=go&logoColor=white"></a>
-  <a href="https://www.cncf.io"><img alt="CNCF" src="https://img.shields.io/badge/CNCF-Sandbox%20Candidate-blue?logo=cncf&logoColor=white"></a>
 </p>
 
 ---
+
+> **Status: archived learning project (December 2025).** Kortex is an LLM API gateway operator I built to learn the problem space: routing, failover, circuit breaking, rate limiting and cost tracking in front of hosted model providers. It has unit tests but was never run against production traffic, and its performance was never benchmarked. It is not a CNCF project. In production I use LiteLLM for provider routing; for in-cluster routing to self-hosted models, the Gateway API Inference Extension is the standard I would use instead.
 
 ## Overview
 
@@ -78,7 +78,7 @@ graph LR
 
 ## Key Features
 
-- **Lightweight Core:** Written in **Go**, designed for low-latency (<5ms overhead).
+- **Lightweight Core:** Written in **Go**. Latency overhead was never benchmarked.
 - **Smart Routing Engine:** Define rules based on prompt length, user tier, or cost budget.
   - *Example:* "If prompt > 4k tokens, route to `claude-3-opus`. Else, route to `llama-3-70b`."
 - **Universal Protocol:** Speaks the standard OpenAI API format. Your existing tools (LangChain, LlamaIndex) work out of the box.
@@ -156,73 +156,9 @@ curl http://localhost:8080/v1/chat/completions \
 
 ---
 
-## Roadmap to CNCF Sandbox
+## Status
 
-### Phase 1: Foundation (Complete)
-- [x] Multi-backend routing (KServe, External APIs, Kubernetes Services)
-- [x] Weighted traffic distribution
-- [x] Automatic failover chains
-- [x] Prometheus metrics integration
-
-### Phase 2: Intelligence (Complete)
-- [x] A/B testing with consistent hashing
-- [x] Per-user rate limiting
-- [x] Real-time cost tracking
-- [x] Health check monitoring
-
-### Phase 3: Cloud Native (Complete)
-- [x] **v0.2:** OpenTelemetry (OTLP) Tracing Support
-- [x] **v0.2:** Smart routing (cost-based, latency-based, context-length)
-- [x] **v0.3:** Circuit Breakers & Retries (exponential backoff, jitter, half-open state)
-- [x] Configuration hot-reload (fsnotify-based file watching)
-
-### Phase 4: v2.0 Vision
-
-Kortex v2.0 expands from an inference gateway to a **unified control plane** for enterprise AI — combining multi-tenancy, caching, and agent governance.
-
-#### Enterprise Features
-- [ ] **v1.0:** Multi-tenancy support
-- [ ] Semantic caching
-- [ ] Enterprise SSO
-- [ ] Multi-cluster federation
-
-#### Agent Governance
-
-As AI moves from **Generative** (chatbots) to **Agentic** (autonomous systems), Kortex will provide a **governance layer for autonomous AI agents**.
-
-- [ ] **AgentPolicy CRD:** Define per-agent governance rules (budgets, allowed tools, blocked actions)
-- [ ] **Automatic Sidecar Injection:** MutatingWebhook injects governance proxy into pods labeled `agent: active`
-- [ ] **FinOps Enforcement:** Hard caps on daily token spend with automatic request blocking
-- [ ] **Tool Allowlisting:** Restrict which external APIs (Stripe, AWS, Slack) an agent can call
-- [ ] **Policy Engine (OPA/Rego):** Flexible rule evaluation beyond simple keyword matching
-- [ ] **Agent Observability:** Track "cost per reasoning step" and tool invocation patterns
-- [ ] **Semantic Drift Detection:** Detect when agent behavior deviates from expected patterns
-
-```yaml
-# Example: AgentPolicy CRD (v2.0)
-apiVersion: governance.kortex.io/v1alpha1
-kind: AgentPolicy
-metadata:
-  name: finance-agent-guardrails
-spec:
-  budget:
-    maxDailySpendUSD: 50.00
-    alertThreshold: 80%
-  firewall:
-    allowedDomains:
-      - "api.openai.com"
-      - "api.stripe.com"
-    blockedActions:
-      - pattern: "DELETE.*FROM"
-        type: regex
-  audit:
-    logAllToolCalls: true
-    retentionDays: 30
-```
-
-> **Why this matters:** Standard firewalls protect the network (Layer 3/4). Kortex v2 protects the **intent** (Layer 7+) — ensuring autonomous agents operate within defined boundaries.
-
----
+Archived in December 2025 as a learning project. There is no roadmap.
 
 ## Contributing
 
